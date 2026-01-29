@@ -9,18 +9,18 @@ import POS from './pages/POS';
 import SalesHistory from './pages/SalesHistory';
 import CashClosure from './pages/CashClosure';
 
-// Layout wrapper to handle Header Titles
 const AppLayout = ({ children }) => {
   const location = useLocation();
 
   const getPageTitle = (path) => {
     switch (path) {
       case '/': return 'Panel de Control';
+      case '/pos': return 'Punto de Venta';
       case '/inventory': return 'Gestión de Inventario';
-      case '/pos': return 'Terminal Punto de Venta';
       case '/history': return 'Historial de Ventas';
       case '/closure': return 'Cierre de Caja';
-      default: return 'MiniMarket';
+      case '/analytics': return 'Reportes Avanzados';
+      default: return 'Minimarket';
     }
   };
 
@@ -50,8 +50,8 @@ function App() {
         <AppLayout>
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/inventory" element={<Inventory />} />
             <Route path="/pos" element={<POS />} />
+            <Route path="/inventory" element={<Inventory />} />
             <Route path="/history" element={<SalesHistory />} />
             <Route path="/closure" element={<CashClosure />} />
           </Routes>

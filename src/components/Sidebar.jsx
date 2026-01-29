@@ -1,15 +1,21 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { FaChartLine, FaBoxOpen, FaCashRegister, FaHistory, FaCalculator } from 'react-icons/fa';
+import { NavLink, useLocation } from 'react-router-dom';
+import {
+    FaThLarge, FaBox, FaShoppingCart, FaHistory,
+    FaChartLine, FaCog, FaCalculator, FaUsers
+} from 'react-icons/fa';
 import { MdStorefront } from 'react-icons/md';
 
 const Sidebar = () => {
-    const links = [
-        { to: '/', label: 'Resumen', icon: <FaChartLine /> },
-        { to: '/inventory', label: 'Inventario', icon: <FaBoxOpen /> },
-        { to: '/pos', label: 'Caja', icon: <FaCashRegister /> },
-        { to: '/history', label: 'Historial', icon: <FaHistory /> },
-        { to: '/closure', label: 'Cierre Caja', icon: <FaCalculator /> },
+    const location = useLocation();
+
+    const menuItems = [
+        { path: '/', name: 'Dashboard', icon: <FaThLarge /> },
+        { path: '/pos', name: 'Vender (POS)', icon: <FaShoppingCart /> },
+        { path: '/inventory', name: 'Inventario', icon: <FaBox /> },
+        { path: '/closure', name: 'Cierre de Caja', icon: <FaCalculator /> },
+        { path: '/history', name: 'Historial', icon: <FaHistory /> },
+        { path: '/analytics', name: 'Reportes', icon: <FaChartLine /> },
     ];
 
     return (
@@ -49,10 +55,10 @@ const Sidebar = () => {
 
             {/* Navigation Links */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {links.map((link) => (
+                {menuItems.map((item) => (
                     <NavLink
-                        key={link.to}
-                        to={link.to}
+                        key={item.path}
+                        to={item.path}
                         style={({ isActive }) => ({
                             display: 'flex',
                             alignItems: 'center',
@@ -60,7 +66,6 @@ const Sidebar = () => {
                             padding: '0.75rem 1rem',
                             borderRadius: 'var(--radius-md)',
                             textDecoration: 'none',
-                            // Active: Dark text with Light Blue BG. Inactive: Gray text.
                             color: isActive ? 'var(--accent-color)' : 'var(--text-secondary)',
                             background: isActive ? 'var(--accent-light)' : 'transparent',
                             fontWeight: isActive ? '600' : '500',
@@ -68,8 +73,8 @@ const Sidebar = () => {
                             fontSize: '0.95rem'
                         })}
                     >
-                        <span style={{ fontSize: '1.1rem' }}>{link.icon}</span>
-                        {link.label}
+                        <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
+                        {item.name}
                     </NavLink>
                 ))}
             </div>

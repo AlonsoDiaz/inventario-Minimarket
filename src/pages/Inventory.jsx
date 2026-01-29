@@ -1,33 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaTimes, FaBarcode } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaTimes, FaBarcode, FaSave, FaImage } from 'react-icons/fa';
 
 const Inventory = () => {
-    const { products, addProduct } = useStore();
+    const { products, addProduct, deleteProduct, updateProduct } = useStore();
+    const location = useLocation();
     const [searchTerm, setSearchTerm] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const formRef = useRef(null);
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const search = params.get('search');
+        if (search) {
+            setSearchTerm(search);
+        }
+    }, [location]);
 
     const [formData, setFormData] = useState({
         barcode: '',
         name: '',
         price: '',
         stock: '',
-        category: ''
+        category: '',
+        image: ''
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!formData.name || !formData.price || !formData.stock) return;
 
-        addProduct({
+        const productData = {
             barcode: formData.barcode || 'N/A',
             name: formData.name,
             price: parseFloat(formData.price),
             stock: parseInt(formData.stock),
-            category: formData.category || 'General'
-        });
+            category: formData.category || 'General',
+            image: formData.image
+        };
 
-        setFormData({ barcode: '', name: '', price: '', stock: '', category: '' });
+        if (editingId) {
+            updateProduct(editingId, productData);
+            setEditingId(null);
+        } else {
+            addProduct(productData);
+        }
+
+        setFormData({ barcode: '', name: '', price: '', stock: '', category: '', image: '' });
+        setIsFormOpen(false);
+    };
+
+    const handleEdit = (product) => {
+        setFormData({
+            barcode: product.barcode || '',
+            name: product.name,
+            price: product.price,
+            stock: product.stock,
+            category: product.category,
+            image: product.image || ''
+        });
+        setEditingId(product.id);
+        setIsFormOpen(true);
+        setTimeout(() => {
+            formRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setFormData({ barcode: '', name: '', price: '', stock: '', category: '', image: '' });
         setIsFormOpen(false);
     };
 
@@ -60,17 +103,25 @@ const Inventory = () => {
 
                 <button
                     className="btn-primary"
-                    onClick={() => setIsFormOpen(!isFormOpen)}
+                    onClick={() => {
+                        if (isFormOpen && editingId) {
+                            cancelEdit();
+                        } else {
+                            setIsFormOpen(!isFormOpen);
+                        }
+                    }}
                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                     {isFormOpen ? <><FaTimes /> Cancelar</> : <><FaPlus /> Nuevo Producto</>}
                 </button>
             </div>
 
-            {/* Add Product Form (Drawer/Card) */}
+            {/* Add/Edit Product Form */}
             {isFormOpen && (
-                <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', borderLeft: '4px solid var(--accent-color)', background: 'white' }}>
-                    <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem', color: 'var(--text-primary)' }}>Registrar Nuevo Producto</h3>
+                <div ref={formRef} className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', borderLeft: editingId ? '4px solid #f59e0b' : '4px solid var(--accent-color)', background: 'white' }}>
+                    <h3 style={{ marginBottom: '1.5rem', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                        {editingId ? 'Editar Producto' : 'Registrar Nuevo Producto'}
+                    </h3>
                     <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', alignItems: 'end' }}>
                         <div>
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-secondary)' }}>Código de Barras</label>
@@ -81,7 +132,6 @@ const Inventory = () => {
                                     placeholder="Escanear..."
                                     value={formData.barcode}
                                     onChange={e => setFormData({ ...formData, barcode: e.target.value })}
-                                    autoFocus // Focus here first for scanner
                                 />
                             </div>
                         </div>
@@ -103,7 +153,7 @@ const Inventory = () => {
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-secondary)' }}>Stock Inicial</label>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-secondary)' }}>Stock Actual</label>
                             <input
                                 placeholder="0"
                                 type="number"
@@ -119,7 +169,21 @@ const Inventory = () => {
                                 onChange={e => setFormData({ ...formData, category: e.target.value })}
                             />
                         </div>
-                        <button type="submit" className="btn-primary" style={{ height: '42px' }}>Guardar Item</button>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-secondary)' }}>URL de Imagen</label>
+                            <div style={{ position: 'relative' }}>
+                                <FaImage style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                <input
+                                    style={{ paddingLeft: '2.5rem' }}
+                                    placeholder="https://..."
+                                    value={formData.image}
+                                    onChange={e => setFormData({ ...formData, image: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <button type="submit" className="btn-primary" style={{ height: '42px', background: editingId ? '#f59e0b' : 'var(--accent-color)' }}>
+                            {editingId ? <><FaSave /> Actualizar</> : <><FaSave /> Guardar Item</>}
+                        </button>
                     </form>
                 </div>
             )}
@@ -129,6 +193,7 @@ const Inventory = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ background: '#f9fafb', textAlign: 'left', color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                            <th style={{ padding: '1rem 1.5rem', fontWeight: '600' }}>Img</th>
                             <th style={{ padding: '1rem 1.5rem', fontWeight: '600' }}>Código</th>
                             <th style={{ padding: '1rem 1.5rem', fontWeight: '600' }}>Producto</th>
                             <th style={{ padding: '1rem 1.5rem', fontWeight: '600' }}>Categoría</th>
@@ -139,11 +204,31 @@ const Inventory = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredProducts.map((product, index) => (
+                        {filteredProducts.map((product) => (
                             <tr key={product.id} style={{
                                 borderBottom: '1px solid var(--card-border)',
-                                transition: 'background 0.2s'
+                                transition: 'background 0.2s',
+                                background: editingId === product.id ? '#fffbeb' : 'transparent'
                             }}>
+                                <td style={{ padding: '1rem 1.5rem' }}>
+                                    <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '8px',
+                                        overflow: 'hidden',
+                                        background: '#f3f4f6',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: '1px solid var(--card-border)'
+                                    }}>
+                                        {product.image ? (
+                                            <img src={product.image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <FaImage style={{ color: '#d1d5db' }} />
+                                        )}
+                                    </div>
+                                </td>
                                 <td style={{ padding: '1rem 1.5rem', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{product.barcode || '---'}</td>
                                 <td style={{ padding: '1rem 1.5rem', fontWeight: '500', color: 'var(--text-primary)' }}>{product.name}</td>
                                 <td style={{ padding: '1rem 1.5rem' }}>
@@ -174,10 +259,20 @@ const Inventory = () => {
                                     )}
                                 </td>
                                 <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
-                                    <button style={{ color: 'var(--text-muted)', background: 'transparent', padding: '8px' }}>
+                                    <button
+                                        onClick={() => handleEdit(product)}
+                                        style={{ color: 'var(--text-muted)', background: 'transparent', padding: '8px', cursor: 'pointer' }}
+                                    >
                                         <FaEdit />
                                     </button>
-                                    <button style={{ color: '#ef4444', background: 'transparent', padding: '8px' }}>
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm('¿Seguro que deseas eliminar este producto?')) {
+                                                deleteProduct(product.id);
+                                            }
+                                        }}
+                                        style={{ color: '#ef4444', background: 'transparent', padding: '8px', cursor: 'pointer' }}
+                                    >
                                         <FaTrash />
                                     </button>
                                 </td>

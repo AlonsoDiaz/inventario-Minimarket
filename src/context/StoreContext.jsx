@@ -5,43 +5,89 @@ const StoreContext = createContext();
 export const useStore = () => useContext(StoreContext);
 
 export const StoreProvider = ({ children }) => {
-  // Initial Data
-  const [products, setProducts] = useState(() => {
-    const saved = localStorage.getItem('products');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, barcode: '7801610001353', name: 'Coca Cola 2L', price: 2500, stock: 50, category: 'Bebidas' },
-      { id: 2, barcode: '7802800533456', name: 'Papas Lays', price: 1500, stock: 30, category: 'Snacks' },
-      { id: 3, barcode: '7801620005432', name: 'Agua Mineral 500ml', price: 800, stock: 100, category: 'Bebidas' },
-    ];
-  });
-
+  const [products, setProducts] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [closures, setClosures] = useState([]);
   const [cart, setCart] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem('transactions');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const API_URL = 'http://localhost:3001/api';
 
-  // Persistence
+  // Load Data from Backend
+  const fetchData = async () => {
+    try {
+      const [prodRes, transRes, closRes] = await Promise.all([
+        fetch(`${API_URL}/products`),
+        fetch(`${API_URL}/transactions`),
+        fetch(`${API_URL}/closures`)
+      ]);
+
+      if (!prodRes.ok || !transRes.ok || !closRes.ok) throw new Error("Error fetching data");
+
+      const prodData = await prodRes.json();
+      const transData = await transRes.json();
+      const closData = await closRes.json();
+
+      setProducts(prodData);
+      setTransactions(transData);
+      setClosures(closData);
+      setLoading(false);
+    } catch (err) {
+      console.error("Failed to load data:", err);
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem('products', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-  }, [transactions]);
+    fetchData();
+  }, []);
 
   // Actions
-  const addProduct = (product) => {
-    setProducts([...products, { ...product, id: Date.now() }]);
+  const addProduct = async (product) => {
+    try {
+      const res = await fetch(`${API_URL}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(product)
+      });
+      if (res.ok) {
+        const newProduct = await res.json();
+        setProducts([...products, newProduct]);
+      }
+    } catch (err) {
+      console.error("Error adding product:", err);
+    }
   };
 
-  const updateProductStock = (id, quantity) => {
-    setProducts(products.map(p =>
-      p.id === id ? { ...p, stock: p.stock - quantity } : p
-    ));
+  const deleteProduct = async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setProducts(products.filter(p => p.id !== id));
+      }
+    } catch (err) {
+      console.error("Error deleting product:", err);
+    }
   };
 
+  const updateProduct = async (id, updatedProduct) => {
+    try {
+      const res = await fetch(`${API_URL}/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProduct)
+      });
+      if (res.ok) {
+        setProducts(products.map(p => p.id === id ? { ...p, ...updatedProduct } : p));
+      }
+    } catch (err) {
+      console.error("Error updating product:", err);
+    }
+  };
+
+  // Cart Actions (Client Side mainly, until sale)
   const addToCart = (product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -70,26 +116,66 @@ export const StoreProvider = ({ children }) => {
 
   const clearCart = () => setCart([]);
 
-  const completeSale = (paymentMethod = 'Efectivo') => {
+  const completeSale = async (paymentMethod = 'Efectivo') => {
     if (cart.length === 0) return;
 
     const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const newTransaction = {
-      id: Date.now(),
+    const saleData = {
+      total,
+      paymentMethod,
       date: new Date().toISOString(),
-      items: cart,
-      total: total,
-      paymentMethod: paymentMethod // Saved 'Efectivo', 'Tarjeta', etc.
+      items: cart.map(item => ({
+        id: item.id, // For stock update
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity
+      }))
     };
 
-    setTransactions([newTransaction, ...transactions]);
+    try {
+      const res = await fetch(`${API_URL}/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(saleData)
+      });
 
-    // Update Stock
-    cart.forEach(item => {
-      updateProductStock(item.id, item.quantity);
-    });
+      if (res.ok) {
+        const completedTransaction = await res.json();
+        setTransactions([completedTransaction, ...transactions]);
 
-    clearCart();
+        // Refetch products to get updated stock
+        const prodRes = await fetch(`${API_URL}/products`);
+        const prodData = await prodRes.json();
+        setProducts(prodData);
+
+        clearCart();
+      }
+    } catch (err) {
+      console.error("Error processing sale:", err);
+      alert("Error procesando venta. Ver consola.");
+    }
+  };
+
+  const saveClosure = async (closureData) => {
+    try {
+      const res = await fetch(`${API_URL}/closures`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(closureData)
+      });
+      if (res.ok) {
+        const newClosure = await res.json();
+        setClosures(prev => {
+          const exists = prev.find(c => c.date === newClosure.date);
+          if (exists) return prev.map(c => c.date === newClosure.date ? newClosure : c);
+          return [newClosure, ...prev];
+        });
+        return true;
+      }
+    } catch (err) {
+      console.error("Error saving closure:", err);
+    }
+    return false;
   };
 
   return (
@@ -97,12 +183,18 @@ export const StoreProvider = ({ children }) => {
       products,
       cart,
       transactions,
+      closures,
+      loading,
+      error,
       addProduct,
+      deleteProduct,
+      updateProduct,
       addToCart,
       removeFromCart,
       updateCartQuantity,
       clearCart,
-      completeSale
+      completeSale,
+      saveClosure
     }}>
       {children}
     </StoreContext.Provider>

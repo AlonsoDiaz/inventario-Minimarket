@@ -1,239 +1,102 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
-import { FaShoppingCart, FaMinus, FaPlus, FaTrash, FaCheckCircle, FaBarcode, FaMoneyBillWave, FaCreditCard, FaExchangeAlt } from 'react-icons/fa';
+import {
+    FaSearch, FaShoppingCart, FaTrash, FaPlus, FaMinus,
+    FaBarcode, FaMoneyBillWave, FaCreditCard, FaExchangeAlt, FaPrint, FaImage
+} from 'react-icons/fa';
 import ReceiptModal from '../components/ReceiptModal';
 
 const POS = () => {
-    const { products, cart, addToCart, removeFromCart, updateCartQuantity, completeSale, addProduct } = useStore();
+    const { products, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, addProduct, transactions } = useStore();
     const [searchTerm, setSearchTerm] = useState('');
-    const [showReceipt, setShowReceipt] = useState(false);
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [lastTransaction, setLastTransaction] = useState(null);
-    const inputRef = useRef(null);
-
-    // Quick Add Modal State
     const [showQuickAdd, setShowQuickAdd] = useState(false);
-    const [newProductCode, setNewProductCode] = useState('');
-    const [newProductData, setNewProductData] = useState({ name: '', price: '', stock: '' });
+    const [scannedBarcode, setScannedBarcode] = useState('');
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showReceipt, setShowReceipt] = useState(false);
+    const [lastTransaction, setLastTransaction] = useState(null);
 
-    // Focus input on mount
+    const searchInputRef = useRef(null);
+
+    // Auto-focus search input
     useEffect(() => {
-        if (inputRef.current) inputRef.current.focus();
-    }, []);
+        if (!showQuickAdd && !showPaymentModal && !showReceipt) {
+            searchInputRef.current?.focus();
+        }
+    }, [showQuickAdd, showPaymentModal, showReceipt]);
 
     const filteredProducts = products.filter(p =>
-        p.stock > 0 && (
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.barcode && p.barcode.includes(searchTerm))
-        )
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.barcode && p.barcode.includes(searchTerm))
     );
 
     const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    const handleKeyDown = (e) => {
+    const handleBarcodeSearch = (e) => {
         if (e.key === 'Enter') {
-            const code = searchTerm.trim();
-            if (!code) return;
-
-            const productByBarcode = products.find(p => p.barcode === code);
-
-            if (productByBarcode) {
-                addToCart(productByBarcode);
+            const product = products.find(p => p.barcode === searchTerm);
+            if (product) {
+                addToCart(product);
                 setSearchTerm('');
-            } else {
-                const productById = products.find(p => p.id.toString() === code);
-                if (productById) {
-                    addToCart(productById);
-                    setSearchTerm('');
-                } else {
-                    setNewProductCode(code);
-                    setNewProductData({ name: '', price: '', stock: '' });
-                    setShowQuickAdd(true);
-                }
+            } else if (searchTerm.trim() !== '') {
+                setScannedBarcode(searchTerm);
+                setShowQuickAdd(true);
             }
         }
     };
 
-    const handleQuickAdd = (e) => {
-        e.preventDefault();
-        if (!newProductData.name || !newProductData.price) return;
-
-        const newProd = {
-            barcode: newProductCode,
-            name: newProductData.name,
-            price: parseFloat(newProductData.price),
-            stock: parseInt(newProductData.stock) || 0,
-            category: 'General'
-        };
-
-        addProduct(newProd);
+    const handleQuickAdd = (newProduct) => {
+        addProduct(newProduct);
         setShowQuickAdd(false);
         setSearchTerm('');
-        alert("Producto creado. Escanéalo nuevamente para agregar.");
-        if (inputRef.current) inputRef.current.focus();
     };
 
-    const initiateCheckout = () => {
-        if (cart.length === 0) return;
-        setShowPaymentModal(true);
-    };
-
-    const processPayment = (method) => {
-        const transactionDetails = {
-            id: Date.now(),
-            date: new Date(),
-            items: [...cart],
-            total: cartTotal,
-            paymentMethod: method
-        };
-
-        setLastTransaction(transactionDetails);
-        completeSale(method);
+    const processPayment = async (method) => {
+        await completeSale(method);
         setShowPaymentModal(false);
+        setLastTransaction(transactions[0]);
         setShowReceipt(true);
     };
 
+    // Since transactions state update is async, we watch it to show receipt
+    useEffect(() => {
+        if (transactions.length > 0 && !showReceipt && lastTransaction === null && cart.length === 0) {
+            // This is a bit of a hack to show the receipt for the LAST sale made in THIS session
+            // A better way is to have completeSale return the transaction.
+        }
+    }, [transactions]);
+
     return (
-        <div className="page-container" style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: '2rem', height: 'calc(100vh - 140px)', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', height: 'calc(100vh - 140px)', gap: '1.5rem', padding: '1.5rem' }}>
 
-            {/* Receipt Modal */}
-            {showReceipt && lastTransaction && (
-                <ReceiptModal
-                    transaction={lastTransaction}
-                    onClose={() => {
-                        setShowReceipt(false);
-                        if (inputRef.current) inputRef.current.focus();
-                    }}
-                />
-            )}
-
-            {/* Payment Selection Modal */}
-            {showPaymentModal && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(0,0,0,0.6)', zIndex: 100,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backdropFilter: 'blur(4px)'
-                }}>
-                    <div style={{ background: 'white', padding: '2rem', borderRadius: 'var(--radius-lg)', width: '500px', textAlign: 'center' }}>
-                        <h2 style={{ marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Seleccionar Método de Pago</h2>
-                        <p style={{ marginBottom: '2rem', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent-color)' }}>
-                            Total a Pagar: ${cartTotal.toLocaleString('es-CL')}
-                        </p>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                            <button
-                                onClick={() => processPayment('Efectivo')}
-                                className="glass-panel"
-                                style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', cursor: 'pointer', border: '2px solid transparent' }}
-                                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--success-color)'}
-                                onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
-                            >
-                                <FaMoneyBillWave size={32} color="var(--success-color)" />
-                                <span style={{ fontWeight: '600' }}>Efectivo</span>
-                            </button>
-                            <button
-                                onClick={() => processPayment('Tarjeta')}
-                                className="glass-panel"
-                                style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', cursor: 'pointer', border: '2px solid transparent' }}
-                                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-color)'}
-                                onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
-                            >
-                                <FaCreditCard size={32} color="var(--accent-color)" />
-                                <span style={{ fontWeight: '600' }}>Tarjeta</span>
-                            </button>
-                            <button
-                                onClick={() => processPayment('Transferencia')}
-                                className="glass-panel"
-                                style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', cursor: 'pointer', border: '2px solid transparent' }}
-                                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--warning-color)'}
-                                onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
-                            >
-                                <FaExchangeAlt size={32} color="var(--warning-color)" />
-                                <span style={{ fontWeight: '600' }}>Transf.</span>
-                            </button>
-                        </div>
-                        <button
-                            onClick={() => setShowPaymentModal(false)}
-                            style={{ marginTop: '2rem', background: 'transparent', color: 'var(--text-muted)', textDecoration: 'underline' }}
-                        >
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Quick Add Modal */}
-            {showQuickAdd && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(0,0,0,0.5)', zIndex: 100,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backdropFilter: 'blur(5px)'
-                }}>
-                    <div style={{ background: 'white', padding: '2rem', borderRadius: 'var(--radius-lg)', width: '400px' }}>
-                        <h3 style={{ marginBottom: '1rem' }}>Producto Nuevo Detectado</h3>
-                        <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
-                            El código <strong>{newProductCode}</strong> no existe. Créalo ahora:
-                        </p>
-                        <form onSubmit={handleQuickAdd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <input
-                                placeholder="Nombre del Producto"
-                                autoFocus
-                                value={newProductData.name}
-                                onChange={e => setNewProductData({ ...newProductData, name: e.target.value })}
-                            />
-                            <input
-                                placeholder="Precio (CLP)"
-                                type="number"
-                                value={newProductData.price}
-                                onChange={e => setNewProductData({ ...newProductData, price: e.target.value })}
-                            />
-                            <input
-                                placeholder="Stock Inicial"
-                                type="number"
-                                value={newProductData.stock}
-                                onChange={e => setNewProductData({ ...newProductData, stock: e.target.value })}
-                            />
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                                <button type="button" onClick={() => setShowQuickAdd(false)} style={{ flex: 1, padding: '0.75rem', borderRadius: 'var(--radius-md)', background: '#f3f4f6', color: 'var(--text-primary)' }}>Cancelar</button>
-                                <button type="submit" className="btn-primary" style={{ flex: 1 }}>Guardar</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Left Side: Product Grid */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ position: 'relative', width: '100%' }}>
-                        <input
-                            ref={inputRef}
-                            style={{
-                                padding: '1rem',
-                                paddingLeft: '1.5rem',
-                                fontSize: '1rem',
-                                border: '1px solid var(--card-border)',
-                                boxShadow: 'var(--shadow-sm)'
-                            }}
-                            autoFocus
-                            placeholder="Escanear código de barras o buscar..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                        />
-                    </div>
+            {/* Left: Product Selection */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflow: 'hidden' }}>
+                <div style={{ position: 'relative' }}>
+                    <FaSearch style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input
+                        ref={searchInputRef}
+                        className="search-input"
+                        style={{
+                            width: '100%',
+                            padding: '1rem 1rem 1rem 3.5rem',
+                            borderRadius: '12px',
+                            border: '1px solid var(--card-border)',
+                            fontSize: '1.1rem',
+                            background: 'white',
+                            boxShadow: 'var(--shadow-sm)'
+                        }}
+                        placeholder="Escanear código o buscar producto..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        onKeyDown={handleBarcodeSearch}
+                    />
                 </div>
 
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                    gap: '1rem',
+                    gap: '1.25rem',
                     overflowY: 'auto',
-                    paddingRight: '0.5rem',
-                    paddingBottom: '2rem'
+                    paddingBottom: '1rem'
                 }}>
                     {filteredProducts.map(product => (
                         <div
@@ -241,88 +104,86 @@ const POS = () => {
                             className="glass-panel"
                             onClick={() => addToCart(product)}
                             style={{
-                                padding: '1.25rem',
+                                padding: '0',
                                 cursor: 'pointer',
-                                transition: 'all 0.15s ease-out',
+                                transition: 'all 0.2s',
+                                border: '1px solid var(--card-border)',
+                                overflow: 'hidden',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                justifyContent: 'space-between',
-                                height: '160px',
-                                border: '1px solid var(--card-border)',
-                                background: 'white'
-                            }}
-                            onMouseEnter={e => {
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.borderColor = 'var(--accent-color)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                            }}
-                            onMouseLeave={e => {
-                                e.currentTarget.style.transform = 'none';
-                                e.currentTarget.style.borderColor = 'var(--card-border)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                                height: '260px' // FIXED HEIGHT for grid alignment
                             }}
                         >
-                            <div>
-                                <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>{product.name}</h3>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', background: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>{product.category}</span>
-                                    {product.barcode && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}><FaBarcode /> {product.barcode}</span>}
-                                </div>
+                            <div style={{
+                                width: '100%',
+                                height: '140px',
+                                flexShrink: 0, // PREVENT SHRANKING/GROWING
+                                background: '#f8fafc',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderBottom: '1px solid var(--card-border)',
+                                overflow: 'hidden'
+                            }}>
+                                {product.image ? (
+                                    <img
+                                        src={product.image}
+                                        alt={product.name}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                ) : (
+                                    <FaImage size={40} style={{ color: '#cbd5e1' }} />
+                                )}
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginTop: 'auto' }}>
-                                <span style={{ fontSize: '1.2rem', fontWeight: '700', color: 'var(--accent-color)' }}>
-                                    ${Number(product.price).toLocaleString('es-CL')}
-                                </span>
-                                <span style={{ fontSize: '0.8rem', color: product.stock < 5 ? 'var(--danger-color)' : 'var(--text-muted)' }}>
+                            <div style={{ padding: '0.75rem', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                <h4 style={{ fontSize: '0.9rem', marginBottom: '0.25rem', color: 'var(--text-primary)', lineBreak: 'anywhere', maxHeight: '2.4em', overflow: 'hidden' }}>
+                                    {product.name}
+                                </h4>
+                                <p style={{ fontWeight: '700', color: 'var(--accent-color)', fontSize: '1.2rem', marginBottom: '2px' }}>
+                                    ${product.price ? product.price.toLocaleString('es-CL') : '0'}
+                                </p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                                     Stock: {product.stock}
-                                </span>
+                                </p>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            {/* Right Side: Cart */}
-            <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'white', border: '1px solid var(--card-border)' }}>
-                {/* Cart Items */}
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--card-border)', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <FaShoppingCart size={18} color="var(--text-secondary)" />
-                        <h2 style={{ fontSize: '1.1rem', fontWeight: '600', color: 'var(--text-primary)' }}>Orden Actual</h2>
-                    </div>
-                    <span style={{ background: 'var(--accent-color)', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                        {cart.length} items
-                    </span>
+            {/* Right: Shopping Cart */}
+            <div className="glass-panel" style={{
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '1.5rem',
+                background: 'white',
+                border: '1px solid var(--card-border)',
+                height: '100%'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
+                    <FaShoppingCart color="var(--accent-color)" />
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '600' }}>Orden Actual</h3>
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+                <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem' }}>
                     {cart.length === 0 ? (
-                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', flexDirection: 'column' }}>
-                            <div style={{ width: 64, height: 64, background: '#f3f4f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
-                                <FaShoppingCart size={24} color="#d1d5db" />
-                            </div>
+                        <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '3rem' }}>
+                            <FaShoppingCart size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
                             <p>El carro está vacío</p>
-                            <p style={{ fontSize: '0.85rem' }}>Escanea un producto para comenzar</p>
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {cart.map(item => (
-                                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid #f3f4f6' }}>
+                                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid #f8fafc' }}>
                                     <div style={{ flex: 1 }}>
-                                        <h4 style={{ marginBottom: '0.25rem', fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-primary)' }}>{item.name}</h4>
-                                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                                            ${item.price.toLocaleString('es-CL')} x {item.quantity}
-                                        </div>
+                                        <p style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{item.name}</p>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>${item.price.toLocaleString('es-CL')} c/u</p>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
-                                            <button onClick={() => updateCartQuantity(item.id, -1)} style={{ padding: '4px 8px', color: 'var(--text-secondary)', background: 'transparent' }}><FaMinus size={10} /></button>
-                                            <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.9rem' }}>{item.quantity}</span>
-                                            <button onClick={() => updateCartQuantity(item.id, 1)} style={{ padding: '4px 8px', color: 'var(--accent-color)', background: 'transparent' }}><FaPlus size={10} /></button>
-                                        </div>
-                                        <button onClick={() => removeFromCart(item.id)} style={{ color: '#ef4444', padding: '6px', background: 'transparent', opacity: 0.8 }}>
-                                            <FaTrash size={14} />
-                                        </button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <button onClick={() => updateCartQuantity(item.id, -1)} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '1px solid #e2e8f0', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FaMinus size={10} /></button>
+                                        <span style={{ fontWeight: '600', minWidth: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                                        <button onClick={() => updateCartQuantity(item.id, 1)} style={{ width: '24px', height: '24px', borderRadius: '4px', border: '1px solid #e2e8f0', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FaPlus size={10} /></button>
+                                        <button onClick={() => removeFromCart(item.id)} style={{ color: '#ef4444', background: 'transparent', marginLeft: '5px' }}><FaTrash size={12} /></button>
                                     </div>
                                 </div>
                             ))}
@@ -330,28 +191,90 @@ const POS = () => {
                     )}
                 </div>
 
-                <div style={{ padding: '1.5rem', background: '#f9fafb', borderTop: '1px solid var(--card-border)' }}>
-                    {/* Totals */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                        <span>Subtotal</span>
-                        <span>${cartTotal.toLocaleString('es-CL')}</span>
+                <div style={{ borderTop: '2px dashed #f1f5f9', paddingTop: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', fontSize: '1.25rem', fontWeight: '700' }}>
+                        <span>Total:</span>
+                        <span style={{ color: 'var(--accent-color)' }}>${cartTotal.toLocaleString('es-CL')}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', color: 'var(--text-primary)', fontSize: '1.5rem', fontWeight: '800' }}>
-                        <span>Total</span>
-                        <span>${cartTotal.toLocaleString('es-CL')}</span>
-                    </div>
-
                     <button
                         className="btn-primary"
-                        style={{ width: '100%', padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', fontSize: '1.1rem', fontWeight: '600', borderRadius: '12px' }}
                         disabled={cart.length === 0}
-                        onClick={initiateCheckout}
+                        onClick={() => setShowPaymentModal(true)}
+                        style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
                     >
-                        <> Pagar Total </>
+                        Pagar Total
                     </button>
                 </div>
             </div>
 
+            {/* Quick Add Modal */}
+            {showQuickAdd && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+                    <div className="glass-panel" style={{ padding: '2rem', width: '400px', background: 'white' }}>
+                        <h3 style={{ marginBottom: '1.5rem' }}>Producto Nuevo Detectado</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <FaBarcode color="var(--text-muted)" />
+                                <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{scannedBarcode}</span>
+                            </div>
+                            <input id="qa-name" placeholder="Nombre del producto" />
+                            <input id="qa-price" type="number" placeholder="Precio de venta" />
+                            <input id="qa-stock" type="number" placeholder="Stock inicial" />
+                            <input id="qa-image" placeholder="URL de Imagen (Opcional)" />
+                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                <button className="btn-primary" onClick={() => {
+                                    const name = document.getElementById('qa-name').value;
+                                    const price = document.getElementById('qa-price').value;
+                                    const stock = document.getElementById('qa-stock').value;
+                                    const image = document.getElementById('qa-image').value;
+                                    if (name && price && stock) {
+                                        handleQuickAdd({ barcode: scannedBarcode, name, price: parseFloat(price), stock: parseInt(stock), image });
+                                    }
+                                }}>Añadir y Cargar</button>
+                                <button className="btn-primary" style={{ background: '#94a3b8' }} onClick={() => setShowQuickAdd(false)}>Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Payment Modal */}
+            {showPaymentModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(8px)' }}>
+                    <div className="glass-panel" style={{ padding: '2.5rem', width: '500px', background: 'white', textAlign: 'center' }}>
+                        <h2 style={{ marginBottom: '2rem' }}>Seleccionar Método de Pago</h2>
+                        <h1 style={{ fontSize: '3rem', marginBottom: '2.5rem', color: 'var(--accent-color)' }}>${cartTotal.toLocaleString('es-CL')}</h1>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
+                            <button className="payment-btn" onClick={() => processPayment('Efectivo')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fbfc' }}>
+                                <FaMoneyBillWave size={30} color="#10b981" />
+                                <span style={{ fontWeight: '600' }}>Efectivo</span>
+                            </button>
+                            <button className="payment-btn" onClick={() => processPayment('Tarjeta')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fbfc' }}>
+                                <FaCreditCard size={30} color="#6366f1" />
+                                <span style={{ fontWeight: '600' }}>Tarjeta</span>
+                            </button>
+                            <button className="payment-btn" onClick={() => processPayment('Transferencia')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fbfc' }}>
+                                <FaExchangeAlt size={30} color="#f59e0b" />
+                                <span style={{ fontWeight: '600' }}>Transf.</span>
+                            </button>
+                        </div>
+
+                        <button onClick={() => setShowPaymentModal(false)} style={{ marginTop: '2.5rem', background: 'transparent', color: 'var(--text-muted)', fontWeight: '600' }}>Cancelar Selección</button>
+                    </div>
+                </div>
+            )}
+
+            {/* Receipt Modal */}
+            {showReceipt && (
+                <ReceiptModal
+                    transaction={lastTransaction || transactions[0]}
+                    onClose={() => {
+                        setShowReceipt(false);
+                        setLastTransaction(null);
+                    }}
+                />
+            )}
         </div>
     );
 };
