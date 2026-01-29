@@ -149,11 +149,13 @@ export const StoreProvider = ({ children }) => {
         setProducts(prodData);
 
         clearCart();
+        return completedTransaction;
       }
     } catch (err) {
       console.error("Error processing sale:", err);
       alert("Error procesando venta. Ver consola.");
     }
+    return null;
   };
 
   const saveClosure = async (closureData) => {

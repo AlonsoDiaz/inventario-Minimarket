@@ -86,7 +86,7 @@ const SalesHistory = () => {
                                     <td style={{ padding: '1rem 1.5rem', color: 'var(--text-secondary)' }}>
                                         {t.items.length} items
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
-                                            ({t.items.slice(0, 2).map(i => i.name).join(', ')}{t.items.length > 2 ? '...' : ''})
+                                            ({t.items.slice(0, 2).map(i => i.productName || i.name).join(', ')}{t.items.length > 2 ? '...' : ''})
                                         </span>
                                     </td>
                                     <td style={{ padding: '1rem 1.5rem', fontWeight: '600', color: 'var(--text-primary)' }}>

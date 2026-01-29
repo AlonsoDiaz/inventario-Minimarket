@@ -58,9 +58,9 @@ const ReceiptModal = ({ transaction, onClose, onPrint }) => {
                     </div>
 
                     <div style={{ fontSize: '0.8rem', marginBottom: '8px' }}>
-                        {transaction.items.map((item, i) => (
+                        {(transaction.items || []).map((item, i) => (
                             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span>{item.quantity} x {item.name.substring(0, 15)}</span>
+                                <span>{item.quantity} x {(item.productName || item.name || '').substring(0, 15)}</span>
                                 <span>${(item.price * item.quantity).toLocaleString('es-CL')}</span>
                             </div>
                         ))}

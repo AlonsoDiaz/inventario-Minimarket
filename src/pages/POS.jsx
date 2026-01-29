@@ -51,10 +51,12 @@ const POS = () => {
     };
 
     const processPayment = async (method) => {
-        await completeSale(method);
+        const result = await completeSale(method);
         setShowPaymentModal(false);
-        setLastTransaction(transactions[0]);
-        setShowReceipt(true);
+        if (result) {
+            setLastTransaction(result);
+            setShowReceipt(true);
+        }
     };
 
     // Since transactions state update is async, we watch it to show receipt
