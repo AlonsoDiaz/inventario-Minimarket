@@ -8,6 +8,7 @@ import Inventory from './pages/Inventory';
 import POS from './pages/POS';
 import SalesHistory from './pages/SalesHistory';
 import CashClosure from './pages/CashClosure';
+import Analytics from './pages/Analytics';
 
 const AppLayout = ({ children }) => {
   const location = useLocation();
@@ -54,6 +55,7 @@ function App() {
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/history" element={<SalesHistory />} />
             <Route path="/closure" element={<CashClosure />} />
+            <Route path="/analytics" element={<Analytics />} />
           </Routes>
         </AppLayout>
       </Router>
