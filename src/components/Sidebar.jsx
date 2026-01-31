@@ -28,29 +28,33 @@ const Sidebar = () => {
             flexDirection: 'column',
             borderRight: '1px solid var(--card-border)',
             position: 'fixed',
-            zIndex: 10
+            zIndex: 10,
+            boxShadow: 'var(--shadow-sm)'
         }}>
-            {/* Minimal Brand Header */}
+            {/* Professional Brand Header */}
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
                 marginBottom: '3rem',
-                paddingLeft: '0.5rem',
+                padding: '1rem',
+                background: 'var(--bg-secondary)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-light)'
             }}>
                 <div style={{
                     width: '32px',
                     height: '32px',
                     background: 'var(--accent-color)',
-                    borderRadius: '6px',
+                    borderRadius: 'var(--radius-sm)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'white'
                 }}>
-                    <MdStorefront size={20} />
+                    <MdStorefront size={18} />
                 </div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-primary)' }}>MiniMarket</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: 'var(--text-primary)' }}>MiniMarket</h2>
             </div>
 
             {/* Navigation Links */}
@@ -66,28 +70,51 @@ const Sidebar = () => {
                             padding: '0.75rem 1rem',
                             borderRadius: 'var(--radius-md)',
                             textDecoration: 'none',
-                            color: isActive ? 'var(--accent-color)' : 'var(--text-secondary)',
-                            background: isActive ? 'var(--accent-light)' : 'transparent',
-                            fontWeight: isActive ? '600' : '500',
-                            transition: 'all 0.2s ease',
-                            fontSize: '0.95rem'
+                            color: isActive ? 'white' : 'var(--text-secondary)',
+                            background: isActive ? 'var(--accent-color)' : 'transparent',
+                            fontWeight: isActive ? '500' : '400',
+                            transition: 'all 0.15s ease',
+                            fontSize: 'var(--font-size-base)'
                         })}
                     >
-                        <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
+                        <span style={{ fontSize: '1.1rem', opacity: location.pathname === item.path ? 1 : 0.7 }}>
+                            {item.icon}
+                        </span>
                         {item.name}
                     </NavLink>
                 ))}
             </div>
 
             {/* Footer */}
-            <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid var(--card-border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>A</span>
+            <div style={{ 
+                marginTop: 'auto', 
+                paddingTop: 'var(--spacing-lg)', 
+                borderTop: '1px solid var(--border-light)'
+            }}>
+                <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px',
+                    padding: 'var(--spacing-md)',
+                    background: 'var(--bg-secondary)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-light)'
+                }}>
+                    <div style={{ 
+                        width: '32px', 
+                        height: '32px', 
+                        borderRadius: '50%', 
+                        background: 'var(--accent-color)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: 'white'
+                    }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>A</span>
                     </div>
                     <div>
-                        <p style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-primary)' }}>Administrador</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Pro Plan</p>
+                        <p style={{ fontSize: 'var(--font-size-sm)', fontWeight: '500', color: 'var(--text-primary)', margin: 0 }}>Administrador</p>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>Cuenta Pro</p>
                     </div>
                 </div>
             </div>

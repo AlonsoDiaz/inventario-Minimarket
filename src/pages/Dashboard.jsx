@@ -53,17 +53,28 @@ const Dashboard = () => {
 
     // Daily Sales Data (Last 7 Days)
     const chartData = useMemo(() => {
+        const formatLabel = new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: '2-digit' });
+
+        const normalizeDate = (date) => {
+            const normalized = new Date(date);
+            normalized.setHours(0, 0, 0, 0);
+            return normalized.toISOString().split('T')[0];
+        };
+
         const last7Days = [...Array(7)].map((_, i) => {
             const d = new Date();
-            d.setDate(d.getDate() - i);
-            return d.toLocaleDateString('es-CL');
-        }).reverse();
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() - (6 - i));
+            return d;
+        });
 
-        return last7Days.map(date => {
+        return last7Days.map((day) => {
+            const targetKey = normalizeDate(day);
             const dailyTotal = transactions
-                .filter(t => new Date(t.date).toLocaleDateString('es-CL') === date)
+                .filter((t) => normalizeDate(t.date) === targetKey)
                 .reduce((sum, t) => sum + t.total, 0);
-            return { name: date.split('/')[0] + '/' + date.split('/')[1], total: dailyTotal };
+
+            return { name: formatLabel.format(day), total: dailyTotal };
         });
     }, [transactions]);
 
